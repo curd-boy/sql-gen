@@ -12,7 +12,7 @@ var (
 	TableDDL map[string]map[string]string
 )
 
-func initTableDDL(ts []TableTemp) {
+func setTableDDL(ts []TableTemp) {
 	for i := range ts {
 		for i2 := range ts[i].Columns {
 			TableDDL[ts[i].Name][ts[i].Columns[i2].Name] = ts[i].Columns[i2].Type

@@ -14,13 +14,16 @@ func NewUsersQuery(db *sql.Tx) *{{.Table.Name}}Query {
 		db: db,
 	}
 }
-// for _, e := range enums
-//type JobStatus string
-//end
+
+{{range $k,$v := .Table.Enums}}
+type {{CamelName $.Table.Name}}{{CamelName $k}} string
 const (
-	JobStatusAPPLIED  = "APPLIED"
-	JobStatusACCEPTED = "ACCEPTED"
+    {{range $i,$vv := $v}}
+    {{- CamelName $.Table.Name}}{{CamelName $k}}{{CamelName $vv}} = "{{$vv}}"
+	{{- end}}
 )
+{{end}}
+
 // {{.Table.Name}} {{.Table.Comment}}
 type {{.Table.Name}} struct {
 {{range $i, $c := .Table.Columns }}

@@ -1,11 +1,12 @@
 package mysql
 
 import (
-	"github.com/wzshiming/namecase"
-	"gopkg.in/ffmt.v1"
 	"io/ioutil"
 	"os"
 	"text/template"
+
+	"github.com/wzshiming/namecase"
+	"gopkg.in/ffmt.v1"
 )
 
 type Temp struct {
@@ -17,6 +18,7 @@ type Temp struct {
 type TableTemp struct {
 	Name    string
 	Comment string
+	Enums   map[string][]string // {"status":[1,2,3]}
 	Columns []ColumnTemp
 }
 
@@ -41,7 +43,7 @@ var FuncMaps = map[string]interface{}{
 	"CamelNameLow": namecase.ToCamel,
 }
 
-func fmtTemp(tplPath string, outPath string, tables *TableTemp, fs []FuncTemp) {
+func ParseTemp(tplPath string, outPath string, tables *TableTemp, fs []FuncTemp) {
 	t, err := ioutil.ReadFile(tplPath)
 	if err != nil {
 		ffmt.Mark(err)

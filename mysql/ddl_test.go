@@ -1,9 +1,9 @@
 package mysql
 
 import (
-	"gopkg.in/ffmt.v1"
 	"testing"
-	"vitess.io/vitess/go/vt/sqlparser"
+
+	"gopkg.in/ffmt.v1"
 )
 
 func TestParseDDL(t *testing.T) {
@@ -16,11 +16,6 @@ func TestParseDDL(t *testing.T) {
   create_time datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间'
 ) ENGINE = InnoDB COMMENT = '用户表';
 `
-	st, err := sqlparser.Parse(sql)
-	if err != nil {
-		ffmt.Mark(err)
-		return
-	}
-
-	ParseDDL(sql)
+	table := ParseDDL(sql)
+	ffmt.P(table)
 }

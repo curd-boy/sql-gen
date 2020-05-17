@@ -1,55 +1,63 @@
 package mysql
 
 import (
+	"strings"
+
+	"gopkg.in/ffmt.v1"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
 func ParseDDL(sql string) *TableTemp {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
+		ffmt.Mark(err)
 		return nil
 	}
+	ffmt.P(stmt)
 	ddl, ok := stmt.(*sqlparser.DDL)
 	if !ok {
 		return nil
 	}
-	table := TableTemp{}
+	table := TableTemp{
+		Enums: make(map[string][]string),
+	}
 	if !ddl.Table.IsEmpty() {
 		table.Name = ddl.Table.Name.String()
 	}
 	cols := make([]ColumnTemp, 0)
-	for _, col := range ddl.TableSpec.Columns {
-		comment := ""
-		if col.Type.Comment != nil {
-			comment = string(col.Type.Comment.Val)
+	for i := range ddl.TableSpec.Columns {
+		cols = append(cols, convertColumnType(table, ddl.TableSpec.Columns[i]))
+	}
+	ops := strings.Split(ddl.TableSpec.Options, " ")
+	for i := range ops {
+		if strings.HasPrefix(ops[i], "COMMENT") {
+			table.Comment = strings.Split(ops[i], "=")[1]
+			table.Comment = table.Comment[1 : len(table.Comment)-1]
 		}
-		cols = append(cols, ColumnTemp{
-			Name:    col.Name.String(),
-			Type:    convertColumnType(&col.Type),
-			Comment: comment,
-		})
 	}
 	table.Columns = cols
 	return &table
 }
-func convertColumnType(ct *sqlparser.ColumnType) string {
-	// 可以直接转换
-	if  t,ok :=types[ct.Type];ok {
-		return t
+func convertColumnType(t TableTemp, c *sqlparser.ColumnDefinition) ColumnTemp {
+	col := ColumnTemp{
+		Name: c.Name.String(),
 	}
-	// TODO 特殊类型
+
+	if c.Type.Comment != nil {
+		col.Comment = string(c.Type.Comment.Val)
+	}
+	// 可以直接转换
+	if t, ok := types[c.Type.Type]; ok {
+		col.Type = t
+		return col
+	}
+	// 特殊类型
 	// 枚举
-
-	return types[ct.Type]
+	switch c.Type.Type {
+	case "enum":
+		t.Enums[t.Name+c.Name.String()] = c.Type.EnumValues
+	default:
+		return col
+	}
+	return col
 }
-
-//
-//-- name: Users
-//CREATE TABLE users
-//(
-//id         int auto_increment primary key,
-//first_name varchar(255)                                        default ''        not null,
-//last_name  varchar(255)                                        default ''        null,
-//age        int                                                 default 0         not null,
-//job_status enum ('APPLIED', 'PENDING', 'ACCEPTED', 'REJECTED') default 'APPLIED' not null
-//)
