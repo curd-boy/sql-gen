@@ -31,6 +31,7 @@ type ColumnTemp struct {
 
 type FuncTemp struct {
 	Name    string
+	IsOne   bool // 返回单条信息
 	Comment string
 	Sql     string
 	Params  []ColumnTemp
@@ -43,7 +44,7 @@ var FuncMaps = map[string]interface{}{
 	"CamelNameLow": namecase.ToCamel,
 }
 
-func ParseTemp(tplPath string, outPath string, tables *TableTemp, fs []FuncTemp) {
+func ParseTemp(tplPath string, outPath string, temp *Temp) {
 	t, err := ioutil.ReadFile(tplPath)
 	if err != nil {
 		ffmt.Mark(err)
@@ -68,11 +69,7 @@ func ParseTemp(tplPath string, outPath string, tables *TableTemp, fs []FuncTemp)
 		return
 	}
 
-	err = tpl.Execute(f, Temp{
-		Package: "mysql",
-		Table:   *tables,
-		Funcs:   fs,
-	})
+	err = tpl.Execute(f, temp)
 	if err != nil {
 		ffmt.Mark(err)
 	}

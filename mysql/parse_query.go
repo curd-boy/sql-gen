@@ -1,13 +1,13 @@
 package mysql
 
 import (
+	"strings"
+
 	"gopkg.in/ffmt.v1"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
 var (
-	// {db users t1}  {db2 info t2}
-	selectTables []TableName
 	// TableDDL {"users":{"id","int"}}
 	TableDDL map[string]map[string]string
 )
@@ -19,20 +19,22 @@ func setTableDDL(ts []TableTemp) {
 		}
 	}
 }
-func ParseSelectQuery(sql string) {
+func ParseSelectQuery(sql string) []ColumnTemp {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
-		return
+		return nil
 	}
 	ffmt.P(stmt)
+	cols := make([]ColumnTemp, 0)
 	switch expr := stmt.(type) {
 	case *sqlparser.Union:
-		ParseUnion(expr)
+		cols = ParseUnion(expr)
 	case *sqlparser.Select:
-		ParseSelect(expr)
+		cols = ParseSelect(expr)
 	default:
 
 	}
+	return cols
 }
 
 type TableName struct {
@@ -41,31 +43,46 @@ type TableName struct {
 	Alias string
 }
 
-func ParseUnion(u *sqlparser.Union) {
+func ParseUnion(u *sqlparser.Union) []ColumnTemp {
 	l, ok := u.Left.(*sqlparser.Select)
 	if !ok {
-		return
+		return nil
 	}
-	ParseSelect(l)
+	return ParseSelect(l)
 	// unnion all 对于字段解析结果没有影响 只需要解析一部分即可
 	// r, ok := u.Right.(*sqlparser.Select)
 	// if !ok {
 	// 	return
 	// }
-	// ParseSelect(r)
+	// return ParseSelect(r)
 }
 
 // 解析Select
-func ParseSelect(s *sqlparser.Select) {
+func ParseSelect(s *sqlparser.Select) []ColumnTemp {
 	// 优先解析from 获取表结构,以解析星号
-	// {db users t1}  {db2 info t2}
-	selectTables = parseFrom(s)
-	defer func() {
-		// 解析完成后清空
-		selectTables = nil
-	}()
-	cols := parseSelectColumn(s)
-	_ = cols
+	// [{db users t1},{db2 info t2}]
+	selectTables := parseFrom(s)
+	// {"t1":"users","t2":"info"}
+	tables := make(map[string]string)
+	for i := range selectTables {
+		tables[selectTables[i].Alias] = selectTables[i].Table
+	}
+	cols := parseSelectColumn(selectTables, s)
+	params := make([]ColumnTemp, len(cols))
+	for i, col := range cols {
+		// 多表查询 需要写表别名 否则无法定位字段归属
+		// 无别名当作单表处理
+		tableName := selectTables[0].Table
+		if col.Table != "" {
+			tableName = tables[col.Table]
+		}
+		params[i] = ColumnTemp{
+			Name:    col.Alias,
+			Type:    TableDDL[tableName][col.Alias],
+			Comment: TableDDL[tableName][col.Alias],
+		}
+	}
+	return params
 }
 
 // t1.name as user_name
@@ -75,8 +92,8 @@ type Column struct {
 	Alias string // user_name
 }
 
-// 函数操作要设置别名
-func parseSelectColumn(s *sqlparser.Select) []Column {
+// mysql函数操作要设置别名
+func parseSelectColumn(selectTables []TableName, s *sqlparser.Select) []Column {
 	cols := make([]Column, 0)
 	for i := range s.SelectExprs {
 		n, ok := s.SelectExprs[i].(*sqlparser.AliasedExpr)
@@ -85,7 +102,7 @@ func parseSelectColumn(s *sqlparser.Select) []Column {
 		}
 		star, ok := s.SelectExprs[i].(*sqlparser.StarExpr)
 		if ok {
-			cols = append(cols, parseSelectColumnStar(star)...)
+			cols = append(cols, parseSelectColumnStar(selectTables, star)...)
 		}
 	}
 	return cols
@@ -109,7 +126,7 @@ func parseSelectColumnNonStar(n *sqlparser.AliasedExpr) []Column {
 }
 
 // 解析select星号字段
-func parseSelectColumnStar(star *sqlparser.StarExpr) []Column {
+func parseSelectColumnStar(selectTables []TableName, star *sqlparser.StarExpr) []Column {
 	cols := make([]Column, 0)
 	if star.TableName.IsEmpty() { // 只有星号,从查询的所有表结构中读取
 		for i := range selectTables {
@@ -197,4 +214,36 @@ func parseFromLeftJoin(expr sqlparser.TableExpr) []TableName {
 		t = append(t, parseAliasedTableExpr(ta))
 	}
 	return t
+}
+
+func parseComment(cs []string) *FuncTemp {
+	// 至少要指定函数名
+	if len(cs) < 1 || !strings.Contains(cs[0], "name:") {
+		return nil
+	}
+	f := FuncTemp{
+		Name:    cs[0],
+		IsOne:   false,
+		Comment: cs[1],
+	}
+	for i := range cs {
+		//-- name: GetUser :one/:many 函数注释 -- 默认many,one需要指定
+		//-- params:  -- 由sql语句反推生成到函数中,直接指定为条件扩展sql,暂时不支持指定(TODO)
+		//-- result: id,last_name -- sql反推,指定则定义相应结构体GetUserRes,暂时不支持指定(TODO)
+		ops := strings.Split(cs[i], " ")
+		if i == 0 && len(ops) < 3 {
+			return nil
+		}
+		if len(ops) >= 4 {
+			if ops[3] == ":one" {
+				f.IsOne = true
+			} else {
+				f.Comment = ops[3]
+			}
+		}
+		if len(ops) == 5 {
+			f.Comment = ops[4]
+		}
+	}
+
 }
