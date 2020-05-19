@@ -9,32 +9,34 @@ import (
 
 var (
 	// TableDDL {"users":{"id","int"}}
-	TableDDL map[string]map[string]string
+	TableDDL map[string]map[string]ColumnTemp
 )
 
 func setTableDDL(ts []TableTemp) {
 	for i := range ts {
 		for i2 := range ts[i].Columns {
-			TableDDL[ts[i].Name][ts[i].Columns[i2].Name] = ts[i].Columns[i2].Type
+			TableDDL[ts[i].Name][ts[i].Columns[i2].Name] = ts[i].Columns[i2]
 		}
 	}
 }
-func ParseSelectQuery(sql string) []ColumnTemp {
+func ParseSelectQuery(sql string) ([]TableName, []ColumnTemp, []ColumnTemp) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
-		return nil
+		return nil, nil, nil
 	}
 	ffmt.P(stmt)
-	cols := make([]ColumnTemp, 0)
+	tables := make([]TableName, 0)
+	params := make([]ColumnTemp, 0)
+	results := make([]ColumnTemp, 0)
 	switch expr := stmt.(type) {
 	case *sqlparser.Union:
-		cols = ParseUnion(expr)
+		tables, params, results = ParseUnion(expr)
 	case *sqlparser.Select:
-		cols = ParseSelect(expr)
+		tables, params, results = ParseSelect(expr)
 	default:
 
 	}
-	return cols
+	return tables, params, results
 }
 
 type TableName struct {
@@ -43,10 +45,10 @@ type TableName struct {
 	Alias string
 }
 
-func ParseUnion(u *sqlparser.Union) []ColumnTemp {
+func ParseUnion(u *sqlparser.Union) ([]TableName, []ColumnTemp, []ColumnTemp) {
 	l, ok := u.Left.(*sqlparser.Select)
 	if !ok {
-		return nil
+		return nil, nil, nil
 	}
 	return ParseSelect(l)
 	// unnion all 对于字段解析结果没有影响 只需要解析一部分即可
@@ -58,7 +60,7 @@ func ParseUnion(u *sqlparser.Union) []ColumnTemp {
 }
 
 // 解析Select
-func ParseSelect(s *sqlparser.Select) []ColumnTemp {
+func ParseSelect(s *sqlparser.Select) ([]TableName, []ColumnTemp, []ColumnTemp) {
 	// 优先解析from 获取表结构,以解析星号
 	// [{db users t1},{db2 info t2}]
 	selectTables := parseFrom(s)
@@ -68,7 +70,7 @@ func ParseSelect(s *sqlparser.Select) []ColumnTemp {
 		tables[selectTables[i].Alias] = selectTables[i].Table
 	}
 	cols := parseSelectColumn(selectTables, s)
-	params := make([]ColumnTemp, len(cols))
+	result := make([]ColumnTemp, len(cols))
 	for i, col := range cols {
 		// 多表查询 需要写表别名 否则无法定位字段归属
 		// 无别名当作单表处理
@@ -76,13 +78,29 @@ func ParseSelect(s *sqlparser.Select) []ColumnTemp {
 		if col.Table != "" {
 			tableName = tables[col.Table]
 		}
-		params[i] = ColumnTemp{
+		result[i] = ColumnTemp{
 			Name:    col.Alias,
-			Type:    TableDDL[tableName][col.Alias],
-			Comment: TableDDL[tableName][col.Alias],
+			Type:    TableDDL[tableName][col.Name].Type,
+			Comment: TableDDL[tableName][col.Name].Comment,
 		}
 	}
-	return params
+	// 解析where
+	wheres := parseWhere(s)
+	params := make([]ColumnTemp, len(wheres))
+	for i := range wheres {
+		// 多表查询 需要写表别名 否则无法定位字段归属
+		// 无别名当作单表处理
+		tableName := selectTables[0].Table
+		if wheres[i].Table != "" {
+			tableName = tables[wheres[i].Table]
+		}
+		params[i] = ColumnTemp{
+			Name:    wheres[i].Alias,
+			Type:    TableDDL[tableName][wheres[i].Name].Type,
+			Comment: TableDDL[tableName][wheres[i].Name].Comment,
+		}
+	}
+	return selectTables, params, result
 }
 
 // t1.name as user_name
@@ -216,6 +234,47 @@ func parseFromLeftJoin(expr sqlparser.TableExpr) []TableName {
 	return t
 }
 
+func parseWhere(s *sqlparser.Select) []Column {
+	if s.Where == nil {
+		return nil
+	}
+	return parseAndExpr(s.Where.Expr)
+}
+
+func parseAndExpr(expr sqlparser.Expr) []Column {
+	cs := make([]Column, 0)
+	switch t := expr.(type) {
+	case *sqlparser.AndExpr:
+		cs = append(cs, parseAndExpr(t.Left)...)
+		cs = append(cs, parseAndExpr(t.Right)...)
+	case *sqlparser.OrExpr:
+		cs = append(cs, parseAndExpr(t.Left)...)
+		cs = append(cs, parseAndExpr(t.Right)...)
+	case *sqlparser.ComparisonExpr:
+		colName := ""
+		tableAlias := ""
+		l, ok := t.Left.(*sqlparser.ColName)
+		if !ok {
+			return nil
+		}
+		colName = l.Name.String()
+		tableAlias = l.Qualifier.Name.String()
+		r, ok := t.Right.(*sqlparser.SQLVal)
+		if !ok {
+			return nil
+		}
+		if r.Type == sqlparser.ValArg {
+			cs = append(cs, Column{
+				Name:  colName,
+				Table: tableAlias,
+			})
+		}
+	default:
+		return nil
+	}
+	return cs
+}
+
 func parseComment(cs []string) *FuncTemp {
 	// 至少要指定函数名
 	if len(cs) < 1 || !strings.Contains(cs[0], "name:") {
@@ -245,5 +304,5 @@ func parseComment(cs []string) *FuncTemp {
 			f.Comment = ops[4]
 		}
 	}
-
+	return &f
 }

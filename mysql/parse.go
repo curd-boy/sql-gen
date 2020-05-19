@@ -35,8 +35,8 @@ func ParseSqlPath(p string) []SqlTemp {
 	return sqlTemps
 }
 
-// Parse sql文件地址
-func Parse(p string) {
+// Parse sql文件地址 指定包名
+func Parse(p string, pack string) {
 	sqlTemps := ParseSqlPath(p)
 	// 先解析ddl语句 得到表结构
 	ts := make([]TableTemp, 0)
@@ -50,20 +50,29 @@ func Parse(p string) {
 
 	// 每张表一个文件
 	funcs := make([]FuncTemp, 0)
+	funcMaps := make(map[string][]FuncTemp)
 	for i := range selectSqls {
 		f := parseComment(selectSqls[i].Comment)
-		cols := ParseSelectQuery(selectSqls[i].Sql)
-		// Param解析 TODO
-		f.Result = cols
+		tables, params, results := ParseSelectQuery(selectSqls[i].Sql)
+		f.Table = tables[0].Table
+		f.Params = params
+		f.Result = results
+		f.Sql = selectSqls[i].Sql
 	}
-	_ = funcs
-	// 解析sql语句
-	ss := ParseSqlPath("")
-	_ = ss
-	for _, t := range ts {
-		// TODO 解析sql
-		_ = t
+	for i := range funcs {
+		funcMaps[funcs[i].Table] = append(funcMaps[funcs[i].Table], funcs[i])
 	}
+	// 组合成模板列表
+	temps := make([]Temp, 0)
+	for i := range ts {
+		temps = append(temps, Temp{
+			Package: pack,
+			Table:   ts[i],
+			Funcs:   funcMaps[ts[i].Name],
+		})
+
+	}
+
 }
 
 type SqlTemp struct {

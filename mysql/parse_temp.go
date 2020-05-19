@@ -31,7 +31,8 @@ type ColumnTemp struct {
 
 type FuncTemp struct {
 	Name    string
-	IsOne   bool // 返回单条信息
+	Table   string // 方法所属的表 联合查询以第一张为准
+	IsOne   bool   // 返回单条信息
 	Comment string
 	Sql     string
 	Params  []ColumnTemp
