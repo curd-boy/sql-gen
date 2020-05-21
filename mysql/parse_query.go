@@ -8,23 +8,34 @@ import (
 )
 
 var (
-	// TableDDL {"users":{"id","int"}}
-	TableDDL map[string]map[string]ColumnTemp
+	// TableDDL {"users":{"id","int","comment"}}
+	TableDDL map[string]TableColumn
 )
 
+type TableColumn map[string]ColumnTemp
+
+func init() {
+	TableDDL = make(map[string]TableColumn)
+
+}
 func setTableDDL(ts []TableTemp) {
 	for i := range ts {
 		for i2 := range ts[i].Columns {
-			TableDDL[ts[i].Name][ts[i].Columns[i2].Name] = ts[i].Columns[i2]
+			t, ok := TableDDL[ts[i].Name]
+			if !ok {
+				t = make(TableColumn)
+			}
+			t[ts[i].Columns[i2].Name] = ts[i].Columns[i2]
+			TableDDL[ts[i].Name] = t
 		}
 	}
 }
 func ParseSelectQuery(sql string) ([]TableName, []ColumnTemp, []ColumnTemp) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
+		ffmt.Mark(err, sql)
 		return nil, nil, nil
 	}
-	ffmt.P(stmt)
 	tables := make([]TableName, 0)
 	params := make([]ColumnTemp, 0)
 	results := make([]ColumnTemp, 0)
@@ -175,7 +186,7 @@ func parseAllColumnInTable(t TableName) []Column {
 
 // 解析Select下的From
 func parseFrom(s *sqlparser.Select) []TableName {
-	tableNames := make([]TableName, len(s.From))
+	tableNames := make([]TableName, 0)
 	for i := range s.From {
 		switch s.From[i].(type) {
 		case *sqlparser.AliasedTableExpr:
@@ -193,14 +204,13 @@ func parseAliasedTableExpr(expr *sqlparser.AliasedTableExpr) TableName {
 	if !expr.As.IsEmpty() {
 		t.Alias = expr.As.String()
 	}
-	if node, ok := expr.Expr.(sqlparser.SQLNode); ok {
-		if tn, ok := node.(*sqlparser.TableName); ok {
-			if tn.Name.IsEmpty() {
-				return t
-			}
-			t.Table = tn.Name.String()
-			t.DB = tn.Qualifier.String()
+	tn, ok := expr.Expr.(sqlparser.TableName)
+	if ok {
+		if tn.Name.IsEmpty() {
+			return t
 		}
+		t.Table = tn.Name.String()
+		t.DB = tn.Qualifier.String()
 	}
 	return t
 }
@@ -265,6 +275,7 @@ func parseAndExpr(expr sqlparser.Expr) []Column {
 		}
 		if r.Type == sqlparser.ValArg {
 			cs = append(cs, Column{
+				Alias: colName,
 				Name:  colName,
 				Table: tableAlias,
 			})
@@ -275,33 +286,31 @@ func parseAndExpr(expr sqlparser.Expr) []Column {
 	return cs
 }
 
-func parseComment(cs []string) *FuncTemp {
+func parseComment(cs []string) *SelectFuncTemp {
 	// 至少要指定函数名
 	if len(cs) < 1 || !strings.Contains(cs[0], "name:") {
 		return nil
 	}
-	f := FuncTemp{
-		Name:    cs[0],
-		IsOne:   false,
-		Comment: cs[1],
-	}
+	f := SelectFuncTemp{}
 	for i := range cs {
 		//-- name: GetUser :one/:many 函数注释 -- 默认many,one需要指定
 		//-- params:  -- 由sql语句反推生成到函数中,直接指定为条件扩展sql,暂时不支持指定(TODO)
 		//-- result: id,last_name -- sql反推,指定则定义相应结构体GetUserRes,暂时不支持指定(TODO)
 		ops := strings.Split(cs[i], " ")
-		if i == 0 && len(ops) < 3 {
-			return nil
-		}
-		if len(ops) >= 4 {
-			if ops[3] == ":one" {
-				f.IsOne = true
-			} else {
-				f.Comment = ops[3]
+		if strings.HasPrefix(cs[i], "-- name:") {
+			if len(ops) < 3 {
+				return nil
 			}
-		}
-		if len(ops) == 5 {
-			f.Comment = ops[4]
+			f.Name = ops[2]
+			if len(ops) >= 4 {
+				if ops[3] == ":one" {
+					f.IsOne = true
+				} else if ops[3] == ":many" {
+					f.IsOne = false
+				} else {
+					f.Comment = strings.Join(ops[3:], " ")
+				}
+			}
 		}
 	}
 	return &f

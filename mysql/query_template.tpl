@@ -31,7 +31,7 @@ type {{.Table.Name}} struct {
 {{end}}
 }
 
-{{range $i,$Func := .Funcs}}
+{{range $i,$Func := .SelectFuncs}}
 type {{$Func.Name}}Result struct {
 	{{range $i, $c := $Func.Result}}
 	{{CamelName $c.Name}}       {{$c.Type}}

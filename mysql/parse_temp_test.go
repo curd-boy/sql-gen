@@ -51,7 +51,7 @@ func Test_fmtTemp(t *testing.T) {
 		Name:    "users",
 		Columns: cols,
 	}
-	f := []FuncTemp{{
+	f := []SelectFuncTemp{{
 		Name:   "GetUser",
 		Sql:    `select * from users;`,
 		Params: cols[:1],
@@ -60,9 +60,9 @@ func Test_fmtTemp(t *testing.T) {
 
 	ParseTemp("../mysql/query-template.tpl", "./sql-gen.go",
 		&Temp{
-			Package: "mysql",
-			Table:   tables,
-			Funcs:   f,
+			Package:     "mysql",
+			Table:       tables,
+			SelectFuncs: f,
 		})
 	ffmt.Mark(time.Since(n))
 }

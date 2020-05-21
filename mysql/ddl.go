@@ -3,6 +3,8 @@ package mysql
 import (
 	"strings"
 
+	"github.com/wzshiming/namecase"
+
 	"gopkg.in/ffmt.v1"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
@@ -10,10 +12,9 @@ import (
 func ParseDDL(sql string) *TableTemp {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
-		ffmt.Mark(err)
+		ffmt.Mark(err, sql)
 		return nil
 	}
-	ffmt.P(stmt)
 	ddl, ok := stmt.(*sqlparser.DDL)
 	if !ok {
 		return nil
@@ -56,6 +57,7 @@ func convertColumnType(t TableTemp, c *sqlparser.ColumnDefinition) ColumnTemp {
 	switch c.Type.Type {
 	case "enum":
 		t.Enums[t.Name+c.Name.String()] = c.Type.EnumValues
+		col.Type = namecase.ToUpperHump(t.Name + "_" + c.Name.String())
 	default:
 		return col
 	}

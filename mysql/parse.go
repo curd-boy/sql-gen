@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/ffmt.v1"
 )
 
 // ParseDDLPath 解析ddl语句文件地址
@@ -21,7 +23,13 @@ func ParseDDLPath(p string) []TableTemp {
 func ParseSqlPath(p string) []SqlTemp {
 	sqlTemps := make([]SqlTemp, 0)
 	filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
+		if info == nil {
+			return err
+		}
 		if info.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(info.Name(), ".sql") {
 			return nil
 		}
 		f, err := os.Open(path)
@@ -42,15 +50,20 @@ func Parse(p string, pack string) {
 	ts := make([]TableTemp, 0)
 
 	ddlSqls, selectSqls, updateSqls, insertSqls, deleteSqls := splitSqlType(sqlTemps)
+
 	for i := range ddlSqls {
-		ts = append(ts, *ParseDDL(ddlSqls[i].Sql))
+		p := ParseDDL(ddlSqls[i].Sql)
+		if p == nil {
+			continue
+		}
+		ts = append(ts, *p)
 	}
 	_, _, _, _ = selectSqls, updateSqls, insertSqls, deleteSqls
 	setTableDDL(ts)
 
 	// 每张表一个文件
-	funcs := make([]FuncTemp, 0)
-	funcMaps := make(map[string][]FuncTemp)
+	//funcs := make([]SelectFuncTemp, 0)
+	funcMaps := make(map[string][]SelectFuncTemp)
 	for i := range selectSqls {
 		f := parseComment(selectSqls[i].Comment)
 		tables, params, results := ParseSelectQuery(selectSqls[i].Sql)
@@ -58,21 +71,21 @@ func Parse(p string, pack string) {
 		f.Params = params
 		f.Result = results
 		f.Sql = selectSqls[i].Sql
+		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
 	}
-	for i := range funcs {
-		funcMaps[funcs[i].Table] = append(funcMaps[funcs[i].Table], funcs[i])
-	}
+	//for i := range funcs {
+	//	funcMaps[funcs[i].Table] = append(funcMaps[funcs[i].Table], funcs[i])
+	//}
 	// 组合成模板列表
 	temps := make([]Temp, 0)
 	for i := range ts {
 		temps = append(temps, Temp{
-			Package: pack,
-			Table:   ts[i],
-			Funcs:   funcMaps[ts[i].Name],
+			Package:     pack,
+			Table:       ts[i],
+			SelectFuncs: funcMaps[ts[i].Name],
 		})
-
 	}
-
+	ffmt.P(temps)
 }
 
 type SqlTemp struct {
@@ -89,7 +102,10 @@ func ParseSql(r *bufio.Reader) []SqlTemp {
 		if err != nil {
 			break
 		}
-		s := string(bytes.TrimSpace(bs))
+		s := string(bytes.TrimSpace(bs)) + " "
+		if s == " " {
+			continue
+		}
 		if strings.HasPrefix(s, "--") ||
 			strings.HasPrefix(s, "/*") ||
 			strings.HasSuffix(s, "*/") {
@@ -97,8 +113,7 @@ func ParseSql(r *bufio.Reader) []SqlTemp {
 			continue
 		}
 		sql.WriteString(s)
-		if strings.HasSuffix(s, ";") {
-			sql.WriteString(s)
+		if strings.HasSuffix(s, "; ") {
 			sqlTemp.Sql = sql.String()
 			sqlTemps = append(sqlTemps, sqlTemp)
 			sqlTemp = SqlTemp{}
@@ -118,7 +133,10 @@ func splitSqlType(sqlTemps []SqlTemp) ([]SqlTemp, []SqlTemp, []SqlTemp, []SqlTem
 		if strings.HasPrefix(sqlTemps[i].Sql, "create") || strings.HasPrefix(sqlTemps[i].Sql, "CREATE") {
 			ddlSqls = append(ddlSqls, sqlTemps[i])
 		}
-		if strings.HasPrefix(sqlTemps[i].Sql, "select") || strings.HasPrefix(sqlTemps[i].Sql, "SELECT") {
+		if strings.HasPrefix(sqlTemps[i].Sql, "select") ||
+			strings.HasPrefix(sqlTemps[i].Sql, "SELECT") ||
+			strings.HasPrefix(sqlTemps[i].Sql, "(select") || // union
+			strings.HasPrefix(sqlTemps[i].Sql, "(SELECT") {
 			selectSqls = append(selectSqls, sqlTemps[i])
 		}
 		if strings.HasPrefix(sqlTemps[i].Sql, "update") || strings.HasPrefix(sqlTemps[i].Sql, "UPDATE") {

@@ -10,9 +10,10 @@ import (
 )
 
 type Temp struct {
-	Package string
-	Table   TableTemp
-	Funcs   []FuncTemp
+	Package     string
+	Table       TableTemp
+	SelectFuncs []SelectFuncTemp
+	UpdateFuncs []UpdateFuncTemp
 }
 
 type TableTemp struct {
@@ -29,7 +30,7 @@ type ColumnTemp struct {
 	Comment string
 }
 
-type FuncTemp struct {
+type SelectFuncTemp struct {
 	Name    string
 	Table   string // 方法所属的表 联合查询以第一张为准
 	IsOne   bool   // 返回单条信息
@@ -37,6 +38,22 @@ type FuncTemp struct {
 	Sql     string
 	Params  []ColumnTemp
 	Result  []ColumnTemp
+}
+
+type UpdateFuncTemp struct {
+	Name    string
+	Table   string
+	Comment string
+	Sql     string
+	Params  []ColumnTemp
+}
+
+type InsertFuncTemp struct {
+	Name    string
+	Table   string
+	Comment string
+	Sql     string
+	Params  []ColumnTemp
 }
 
 var FuncMaps = map[string]interface{}{

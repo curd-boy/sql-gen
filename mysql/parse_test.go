@@ -21,3 +21,7 @@ func TestParseDDLPath(t *testing.T) {
 		fmt.Println(is, string(bs))
 	}
 }
+
+func TestParse(t *testing.T) {
+	Parse("./", "mysql")
+}
