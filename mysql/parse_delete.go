@@ -10,7 +10,7 @@ type DeleteSQL struct {
 var _defaultDelete = DeleteSQL{}
 
 // ParseDeleteSql ...
-func ParseDeleteSql(sql string) ([]TableName, []Column, error) {
+func ParseDeleteSql(sql string) ([]TableName, []ColumnTemp, error) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
 		return nil, nil, err
@@ -24,7 +24,7 @@ func ParseDeleteSql(sql string) ([]TableName, []Column, error) {
 			ts = append(ts, _defaultDelete.parseTableExpr(expr))
 		}
 		conditions = append(conditions, parseAndExpr(t.Where.Expr)...)
-		return ts, conditions, nil
+		return ts, convertColsToTemps(ts, conditions), nil
 	default:
 		return nil, nil, nil
 	}

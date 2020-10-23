@@ -67,57 +67,17 @@ func ParseUnion(u *sqlparser.Union) ([]TableName, []ColumnTemp, []ColumnTemp, er
 func ParseSelect(s *sqlparser.Select) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
 	// 优先解析from 获取表结构,以解析星号
 	// [{db users t1},{db2 info t2}]
-	selectTables  := parseFrom(s)
-	if len(selectTables) == 0 {
+	ts := parseFrom(s)
+	if len(ts) == 0 {
 		return nil, nil, nil, errors.New("no table found")
 	}
-	// {"t1":"users","t2":"info"}
-	tables := make(map[string]string)
-	for i := range selectTables {
-		tables[selectTables[i].Alias] = selectTables[i].Table
-	}
-	cols := parseSelectColumn(selectTables, s)
+
+	cols := parseSelectColumn(ts, s)
 	if len(cols) == 0 {
 		return nil, nil, nil, errors.New("has no columns")
 	}
-	result := make([]ColumnTemp, len(cols))
-	for i, col := range cols {
-		// 多表查询 需要写表别名 否则无法定位字段归属
-		// 无别名当作单表处理
-		tableName := selectTables[0].Table
-		if col.Table != "" {
-			tableName = tables[col.Table]
-		}
-		if col.Alias == "" {
-			col.Alias = col.Name
-		}
-		result[i] = convertColumnToTemp(tableName, col)
-	}
-	// 解析where
-	wheres := parseWhere(s)
-	params := make([]ColumnTemp, len(wheres))
-	for i, col := range wheres {
-		// 多表查询 需要写表别名 否则无法定位字段归属
-		// 无别名当作单表处理
-		tableName := selectTables[0].Table
-		if wheres[i].Table != "" {
-			tableName = tables[wheres[i].Table]
-		}
-		if col.Alias == "" {
-			col.Alias = col.Name
-		}
-		params[i] = convertColumnToTemp(tableName, col)
-	}
-	return selectTables, params, result, nil
-}
 
-
-func convertColumnToTemp(tableName string, c Column) ColumnTemp {
-	return ColumnTemp{
-		Name:    c.Alias,
-		Type:    TableDDL[tableName][c.Name].Type,
-		Comment: TableDDL[tableName][c.Name].Comment,
-	}
+	return ts, convertColsToTemps(ts,parseWhere(s)), convertColsToTemps(ts, cols), nil
 }
 
 // mysql函数操作要设置别名
@@ -192,12 +152,9 @@ func parseFrom(s *sqlparser.Select) []TableName {
 	return tableNames
 }
 
-
-
 func parseWhere(s *sqlparser.Select) []Column {
 	if s.Where == nil {
 		return nil
 	}
 	return parseAndExpr(s.Where.Expr)
 }
-

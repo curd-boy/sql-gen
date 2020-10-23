@@ -5,13 +5,13 @@ import (
 	"strings"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
+
 // Column t1.name as user_name
 type Column struct {
 	Table string // t1
 	Name  string // name
 	Alias string // user_name
 }
-
 
 func parseComment(cs []string) (*SelectFuncTemp, error) {
 	// 至少要指定函数名
@@ -115,4 +115,36 @@ func parseAndExpr(expr sqlparser.Expr) []Column {
 		return nil
 	}
 	return cs
+}
+
+func convertColsToTemps(ts []TableName, cols []Column, ) []ColumnTemp {
+	if len(ts) == 0 {
+		return nil
+	}
+	tables := make(map[string]string)
+	for i := range ts {
+		tables[ts[i].Alias] = ts[i].Table
+	}
+	result := make([]ColumnTemp, len(cols))
+	for i, col := range cols {
+		// 多表查询 需要写表别名 否则无法定位字段归属
+		// 无别名当作单表处理
+		tableName := ts[0].Table
+		if col.Table != "" {
+			tableName = tables[col.Table]
+		}
+		if col.Alias == "" {
+			col.Alias = col.Name
+		}
+		result[i] = convertColumnToTemp(tableName, col)
+	}
+	return result
+}
+
+func convertColumnToTemp(tableName string, c Column) ColumnTemp {
+	return ColumnTemp{
+		Name:    c.Alias,
+		Type:    TableDDL[tableName][c.Name].Type,
+		Comment: TableDDL[tableName][c.Name].Comment,
+	}
 }
