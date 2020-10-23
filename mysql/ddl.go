@@ -1,23 +1,22 @@
 package mysql
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/wzshiming/namecase"
 
-	"gopkg.in/ffmt.v1"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-func ParseDDL(sql string) *TableTemp {
+func ParseDDL(sql string) (*TableTemp, error) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
-		ffmt.Mark(err, sql)
-		return nil
+		return nil, err
 	}
 	ddl, ok := stmt.(*sqlparser.DDL)
 	if !ok {
-		return nil
+		return nil, errors.New("invalid sql")
 	}
 	table := TableTemp{
 		Enums: make(map[string][]string),
@@ -37,7 +36,7 @@ func ParseDDL(sql string) *TableTemp {
 		}
 	}
 	table.Columns = cols
-	return &table
+	return &table, err
 }
 func convertColumnType(t TableTemp, c *sqlparser.ColumnDefinition) ColumnTemp {
 	col := ColumnTemp{

@@ -11,18 +11,25 @@ import (
 )
 
 // ParseDDLPath 解析ddl语句文件地址
-func ParseDDLPath(p string) []TableTemp {
+func ParseDDLPath(p string) ([]TableTemp, error) {
 	ts := make([]TableTemp, 0)
-	sqlTemps := ParseSqlPath(p)
-	for _, temp := range sqlTemps {
-		ts = append(ts, *ParseDDL(temp.Sql))
+	sqlTemps, err := ParseSqlPath(p)
+	if err != nil {
+		return ts, err
 	}
-	return ts
+	for _, temp := range sqlTemps {
+		ddl, err := ParseDDL(temp.Sql)
+		if err != nil {
+			return ts, err
+		}
+		ts = append(ts, *ddl)
+	}
+	return ts, err
 }
 
-func ParseSqlPath(p string) []SqlTemp {
+func ParseSqlPath(p string) ([]SqlTemp, error) {
 	sqlTemps := make([]SqlTemp, 0)
-	filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
 		if info == nil {
 			return err
 		}
@@ -40,20 +47,26 @@ func ParseSqlPath(p string) []SqlTemp {
 		sqlTemps = append(sqlTemps, ParseSql(bufio.NewReader(f))...)
 		return nil
 	})
-	return sqlTemps
+	return sqlTemps, err
 }
 
 // Parse sql文件地址 指定包名
-func Parse(p string, pack string) {
-	sqlTemps := ParseSqlPath(p)
+func Parse(p string, pack string) error {
+	if pack == "" {
+		pack = "default_package"
+	}
+	sqlTemps, err := ParseSqlPath(p)
+	if err != nil {
+		return err
+	}
 	// 先解析ddl语句 得到表结构
 	ts := make([]TableTemp, 0)
 
 	ddlSqls, selectSqls, updateSqls, insertSqls, deleteSqls := splitSqlType(sqlTemps)
 
 	for i := range ddlSqls {
-		p := ParseDDL(ddlSqls[i].Sql)
-		if p == nil {
+		p, err := ParseDDL(ddlSqls[i].Sql)
+		if err != nil {
 			continue
 		}
 		ts = append(ts, *p)
@@ -62,20 +75,26 @@ func Parse(p string, pack string) {
 	setTableDDL(ts)
 
 	// 每张表一个文件
-	//funcs := make([]SelectFuncTemp, 0)
+	// funcs := make([]SelectFuncTemp, 0)
 	funcMaps := make(map[string][]SelectFuncTemp)
 	for i := range selectSqls {
-		f := parseComment(selectSqls[i].Comment)
-		tables, params, results := ParseSelectQuery(selectSqls[i].Sql)
+		f, err := parseComment(selectSqls[i].Comment)
+		if err != nil {
+			return err
+		}
+		tables, params, results, err := ParseSelectQuery(selectSqls[i].Sql)
+		if err != nil {
+			return err
+		}
 		f.Table = tables[0].Table
 		f.Params = params
 		f.Result = results
 		f.Sql = selectSqls[i].Sql
 		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
 	}
-	//for i := range funcs {
+	// for i := range funcs {
 	//	funcMaps[funcs[i].Table] = append(funcMaps[funcs[i].Table], funcs[i])
-	//}
+	// }
 	// 组合成模板列表
 	temps := make([]Temp, 0)
 	for i := range ts {
@@ -86,6 +105,7 @@ func Parse(p string, pack string) {
 		})
 	}
 	ffmt.P(temps)
+	return nil
 }
 
 type SqlTemp struct {

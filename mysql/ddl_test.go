@@ -16,6 +16,6 @@ func TestParseDDL(t *testing.T) {
   create_time datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间'
 ) ENGINE = InnoDB COMMENT = '用户表';
 `
-	table := ParseDDL(sql)
-	ffmt.P(table)
+	table, err := ParseDDL(sql)
+	ffmt.P(table, err)
 }
