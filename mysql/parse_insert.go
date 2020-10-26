@@ -3,7 +3,6 @@ package mysql
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/ffmt.v1"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
@@ -12,23 +11,21 @@ type InsertSql struct {
 
 var _defaultInsert = InsertSql{}
 
-func ParseInsertSql(sql string) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
+func ParseInsertSql(sql string) ([]TableName, []ColumnTemp, error) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
-		return nil, nil, nil, nil
+		return nil, nil, nil
 	}
-	ffmt.P(stmt)
-
 	switch t := stmt.(type) {
 	case *sqlparser.Insert:
-		ts, args, cond, err := _defaultInsert.parseInsert(t)
-		return ts, convertColsToTemps(ts, args), convertColsToTemps(ts, cond), err
+		ts, args, err := _defaultInsert.parseInsert(t)
+		return ts, convertColsToTemps(ts, args), err
 	default:
-		return nil, nil, nil, errors.New(fmt.Sprintf("unknown type %v", stmt))
+		return nil, nil, errors.New(fmt.Sprintf("unknown type %v", stmt))
 	}
 }
 
-func (s *InsertSql) parseInsert(i *sqlparser.Insert) ([]TableName, []Column, []Column, error) {
+func (s *InsertSql) parseInsert(i *sqlparser.Insert) ([]TableName, []Column, error) {
 	ts := []TableName{{DB: i.Table.Qualifier.String(), Table: i.Table.Name.String()}}
 	cols := make([]Column, 0, len(i.Columns))
 	for _, col := range i.Columns {
@@ -38,5 +35,5 @@ func (s *InsertSql) parseInsert(i *sqlparser.Insert) ([]TableName, []Column, []C
 			Alias: "",
 		})
 	}
-	return ts, cols, nil, nil
+	return ts, cols, nil
 }

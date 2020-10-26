@@ -3,11 +3,10 @@ package mysql
 import (
 	"bufio"
 	"bytes"
+	"gopkg.in/ffmt.v1"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/ffmt.v1"
 )
 
 // ParseDDLPath 解析ddl语句文件地址
@@ -62,22 +61,21 @@ func Parse(p string, pack string) error {
 	// 先解析ddl语句 得到表结构
 	ts := make([]TableTemp, 0)
 
-	ddlSqls, selectSqls, updateSqls, insertSqls, deleteSqls := splitSqlType(sqlTemps)
+	ddlSql, selectSql, updateSql, insertSql, deleteSql := splitSqlType(sqlTemps)
 
-	for i := range ddlSqls {
-		p, err := ParseDDL(ddlSqls[i].Sql)
+	for i := range ddlSql {
+		p, err := ParseDDL(ddlSql[i].Sql)
 		if err != nil {
 			continue
 		}
 		ts = append(ts, *p)
 	}
-	_, _, _, _ = selectSqls, updateSqls, insertSqls, deleteSqls
+	_, _, _, _ = selectSql, updateSql, insertSql, deleteSql
 	setTableDDL(ts)
 
 	// 每张表一个文件
-	// funcs := make([]SelectFuncTemp, 0)
 	funcMaps := make(map[string][]SelectFuncTemp)
-	for _,s := range selectSqls {
+	for _, s := range selectSql {
 		f, err := parseComment(s.Comment)
 		if err != nil {
 			return err
@@ -92,7 +90,7 @@ func Parse(p string, pack string) error {
 		f.Sql = s.Sql
 		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
 	}
-	for _,s := range updateSqls{
+	for _, s := range updateSql {
 		f, err := parseComment(s.Comment)
 		if err != nil {
 			return err
@@ -107,7 +105,7 @@ func Parse(p string, pack string) error {
 		f.Sql = s.Sql
 		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
 	}
-	for _,s := range deleteSqls{
+	for _, s := range deleteSql {
 		f, err := parseComment(s.Comment)
 		if err != nil {
 			return err
@@ -121,10 +119,21 @@ func Parse(p string, pack string) error {
 		f.Sql = s.Sql
 		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
 	}
+	for _, s := range insertSql {
+		f, err := parseComment(s.Comment)
+		if err != nil {
+			return err
+		}
+		tables, params, err := ParseInsertSql(s.Sql)
+		if err != nil {
+			return err
+		}
+		f.Table = tables[0].Table
+		f.Params = params
+		f.Sql = s.Sql
+		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
+	}
 
-	// for i := range funcs {
-	//	funcMaps[funcs[i].Table] = append(funcMaps[funcs[i].Table], funcs[i])
-	// }
 	// 组合成模板列表
 	temps := make([]Temp, 0)
 	for i := range ts {
@@ -134,7 +143,7 @@ func Parse(p string, pack string) error {
 			SelectFuncs: funcMaps[ts[i].Name],
 		})
 	}
-	ffmt.P(temps)
+	ffmt.Mark(temps)
 	return nil
 }
 
@@ -174,30 +183,30 @@ func ParseSql(r *bufio.Reader) []SqlTemp {
 }
 
 func splitSqlType(sqlTemps []SqlTemp) ([]SqlTemp, []SqlTemp, []SqlTemp, []SqlTemp, []SqlTemp) {
-	ddlSqls := make([]SqlTemp, 0)
-	selectSqls := make([]SqlTemp, 0)
-	updateSqls := make([]SqlTemp, 0)
-	insertSqls := make([]SqlTemp, 0)
-	deleteSqls := make([]SqlTemp, 0)
+	ddlSql := make([]SqlTemp, 0)
+	selectSql := make([]SqlTemp, 0)
+	updateSql := make([]SqlTemp, 0)
+	insertSql := make([]SqlTemp, 0)
+	deleteSql := make([]SqlTemp, 0)
 	for i := range sqlTemps {
 		if strings.HasPrefix(sqlTemps[i].Sql, "create") || strings.HasPrefix(sqlTemps[i].Sql, "CREATE") {
-			ddlSqls = append(ddlSqls, sqlTemps[i])
+			ddlSql = append(ddlSql, sqlTemps[i])
 		}
 		if strings.HasPrefix(sqlTemps[i].Sql, "select") ||
 			strings.HasPrefix(sqlTemps[i].Sql, "SELECT") ||
 			strings.HasPrefix(sqlTemps[i].Sql, "(select") || // union
 			strings.HasPrefix(sqlTemps[i].Sql, "(SELECT") {
-			selectSqls = append(selectSqls, sqlTemps[i])
+			selectSql = append(selectSql, sqlTemps[i])
 		}
 		if strings.HasPrefix(sqlTemps[i].Sql, "update") || strings.HasPrefix(sqlTemps[i].Sql, "UPDATE") {
-			updateSqls = append(updateSqls, sqlTemps[i])
+			updateSql = append(updateSql, sqlTemps[i])
 		}
 		if strings.HasPrefix(sqlTemps[i].Sql, "insert") || strings.HasPrefix(sqlTemps[i].Sql, "INSERT") {
-			insertSqls = append(insertSqls, sqlTemps[i])
+			insertSql = append(insertSql, sqlTemps[i])
 		}
 		if strings.HasPrefix(sqlTemps[i].Sql, "delete") || strings.HasPrefix(sqlTemps[i].Sql, "INSERT") {
-			deleteSqls = append(deleteSqls, sqlTemps[i])
+			deleteSql = append(deleteSql, sqlTemps[i])
 		}
 	}
-	return ddlSqls, selectSqls, updateSqls, insertSqls, deleteSqls
+	return ddlSql, selectSql, updateSql, insertSql, deleteSql
 }

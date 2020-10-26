@@ -5,10 +5,12 @@ import (
 	"database/sql"
 )
 
+// {{.Table.Name}}Query tableName
 type {{.Table.Name}}Query struct {
 	db *sql.Tx
 }
 
+// NewUsersQuery NewUsersQuery
 func NewUsersQuery(db *sql.Tx) *{{.Table.Name}}Query {
 	return &{{.Table.Name}}Query{
 		db: db,
@@ -29,6 +31,12 @@ type {{.Table.Name}} struct {
 {{range $i, $c := .Table.Columns }}
 {{CamelName $c.Name}}    {{$c.Type}}    `json:"{{$c.Name}}"`    // '{{$c.Comment}}',
 {{end}}
+}
+
+func (q {{.Table.Name}}Query){{.Table.Name}}Insert(ctx context.Context val {{.Table.Name}})(int64,error){
+    q.db.Exec("insert into {{.Table.Name}} (
+       {{range $i, $c := .Table.Columns }}`{{CamelName $c.Name}}`{{end}}
+    ) values();",)
 }
 
 {{range $i,$Func := .SelectFuncs}}
