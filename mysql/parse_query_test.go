@@ -13,5 +13,5 @@ where t1.id = 1 or t2.name = ? and t2.name != ? `
 	// right join db.age t2 on t1.id = t2.tid  `
 	// st, _ := sqlparser.Parse(sql)
 	// ffmt.P(st)
-	fmt.Println(ParseSelectQuery(sql))
+	fmt.Println(ParseSelectSql(sql))
 }

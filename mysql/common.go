@@ -6,6 +6,13 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
+// TableName db.users t1
+type TableName struct {
+	DB    string
+	Table string
+	Alias string
+}
+
 // Column t1.name as user_name
 type Column struct {
 	Table string // t1

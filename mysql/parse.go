@@ -77,21 +77,51 @@ func Parse(p string, pack string) error {
 	// 每张表一个文件
 	// funcs := make([]SelectFuncTemp, 0)
 	funcMaps := make(map[string][]SelectFuncTemp)
-	for i := range selectSqls {
-		f, err := parseComment(selectSqls[i].Comment)
+	for _,s := range selectSqls {
+		f, err := parseComment(s.Comment)
 		if err != nil {
 			return err
 		}
-		tables, params, results, err := ParseSelectQuery(selectSqls[i].Sql)
+		tables, params, results, err := ParseSelectSql(s.Sql)
 		if err != nil {
 			return err
 		}
 		f.Table = tables[0].Table
 		f.Params = params
 		f.Result = results
-		f.Sql = selectSqls[i].Sql
+		f.Sql = s.Sql
 		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
 	}
+	for _,s := range updateSqls{
+		f, err := parseComment(s.Comment)
+		if err != nil {
+			return err
+		}
+		tables, params, results, err := ParseUpdateSql(s.Sql)
+		if err != nil {
+			return err
+		}
+		f.Table = tables[0].Table
+		f.Params = params
+		f.Result = results
+		f.Sql = s.Sql
+		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
+	}
+	for _,s := range deleteSqls{
+		f, err := parseComment(s.Comment)
+		if err != nil {
+			return err
+		}
+		tables, params, err := ParseDeleteSql(s.Sql)
+		if err != nil {
+			return err
+		}
+		f.Table = tables[0].Table
+		f.Params = params
+		f.Sql = s.Sql
+		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
+	}
+
 	// for i := range funcs {
 	//	funcMaps[funcs[i].Table] = append(funcMaps[funcs[i].Table], funcs[i])
 	// }

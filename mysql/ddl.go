@@ -9,6 +9,30 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
+var (
+	// TableDDL {"users":{"id","int","comment"}}
+	TableDDL map[string]TableColumn
+)
+
+type TableColumn map[string]ColumnTemp
+
+func init() {
+	TableDDL = make(map[string]TableColumn)
+}
+
+func setTableDDL(ts []TableTemp) {
+	for i := range ts {
+		for i2 := range ts[i].Columns {
+			t, ok := TableDDL[ts[i].Name]
+			if !ok {
+				t = make(TableColumn)
+			}
+			t[ts[i].Columns[i2].Name] = ts[i].Columns[i2]
+			TableDDL[ts[i].Name] = t
+		}
+	}
+}
+
 func ParseDDL(sql string) (*TableTemp, error) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {

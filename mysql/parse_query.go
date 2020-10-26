@@ -6,30 +6,10 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-var (
-	// TableDDL {"users":{"id","int","comment"}}
-	TableDDL map[string]TableColumn
-)
-
-type TableColumn map[string]ColumnTemp
-
-func init() {
-	TableDDL = make(map[string]TableColumn)
+type SelectSql struct {
 
 }
-func setTableDDL(ts []TableTemp) {
-	for i := range ts {
-		for i2 := range ts[i].Columns {
-			t, ok := TableDDL[ts[i].Name]
-			if !ok {
-				t = make(TableColumn)
-			}
-			t[ts[i].Columns[i2].Name] = ts[i].Columns[i2]
-			TableDDL[ts[i].Name] = t
-		}
-	}
-}
-func ParseSelectQuery(sql string) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
+func ParseSelectSql(sql string) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
 		return nil, nil, nil, err
@@ -39,32 +19,26 @@ func ParseSelectQuery(sql string) ([]TableName, []ColumnTemp, []ColumnTemp, erro
 	results := make([]ColumnTemp, 0)
 	switch expr := stmt.(type) {
 	case *sqlparser.Union:
-		tables, params, results, err = ParseUnion(expr)
+		tables, params, results, err = parseUnion(expr)
 	case *sqlparser.Select:
-		tables, params, results, err = ParseSelect(expr)
+		tables, params, results, err = parseSelect(expr)
 	default:
 		err = errors.New("unknown select sql type")
 	}
 	return tables, params, results, nil
 }
 
-type TableName struct {
-	DB    string
-	Table string
-	Alias string
-}
-
-func ParseUnion(u *sqlparser.Union) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
+func parseUnion(u *sqlparser.Union) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
 	l, ok := u.Left.(*sqlparser.Select)
 	if !ok {
 		return nil, nil, nil, errors.New("left of sql is not union select")
 	}
-	return ParseSelect(l)
+	return parseSelect(l)
 	// union all 对于字段解析结果没有影响 只需要解析一部分即可
 }
 
 // 解析Select
-func ParseSelect(s *sqlparser.Select) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
+func parseSelect(s *sqlparser.Select) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
 	// 优先解析from 获取表结构,以解析星号
 	// [{db users t1},{db2 info t2}]
 	ts := parseFrom(s)
@@ -77,7 +51,7 @@ func ParseSelect(s *sqlparser.Select) ([]TableName, []ColumnTemp, []ColumnTemp, 
 		return nil, nil, nil, errors.New("has no columns")
 	}
 
-	return ts, convertColsToTemps(ts,parseWhere(s)), convertColsToTemps(ts, cols), nil
+	return ts, convertColsToTemps(ts, parseWhere(s)), convertColsToTemps(ts, cols), nil
 }
 
 // mysql函数操作要设置别名
