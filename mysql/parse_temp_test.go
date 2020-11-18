@@ -60,9 +60,9 @@ func Test_fmtTemp(t *testing.T) {
 
 	ParseTemp("../mysql/query-template.tpl", "./sql-gen.go",
 		&Temp{
-			Package:     "mysql",
-			Table:       tables,
-			SelectFuncs: f,
+			Package:    "mysql",
+			Table:      tables,
+			SelectFunc: f,
 		})
 	ffmt.Mark(time.Since(n))
 }

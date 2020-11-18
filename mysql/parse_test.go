@@ -3,6 +3,7 @@ package mysql
 import (
 	"bufio"
 	"fmt"
+	"gopkg.in/ffmt.v1"
 	"strings"
 	"testing"
 )
@@ -23,5 +24,5 @@ func TestParseDDLPath(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	Parse("./", "mysql")
+	ffmt.P(Parse("./", "mysql"))
 }

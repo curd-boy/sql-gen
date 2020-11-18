@@ -5,14 +5,14 @@ import (
 	"database/sql"
 )
 
-// {{.Table.Name}}Query tableName
-type {{.Table.Name}}Query struct {
+// {{.Table.Name}}DBS {{if .Table.Comment}}{{.Table.Comment}}{{else}}...{{end}}
+type {{.Table.Name}}DBS struct {
 	db *sql.Tx
 }
 
 // NewUsersQuery NewUsersQuery
-func NewUsersQuery(db *sql.Tx) *{{.Table.Name}}Query {
-	return &{{.Table.Name}}Query{
+func NewUsersQuery(db *sql.Tx) *{{.Table.Name}}DBS {
+	return &{{.Table.Name}}DBS{
 		db: db,
 	}
 }
@@ -33,7 +33,7 @@ type {{.Table.Name}} struct {
 {{end}}
 }
 
-func (q {{.Table.Name}}Query){{.Table.Name}}Insert(ctx context.Context val {{.Table.Name}})(int64,error){
+func (q {{.Table.Name}}DBS){{.Table.Name}}Insert(ctx context.Context val {{.Table.Name}})(int64,error){
     q.db.Exec("insert into {{.Table.Name}} (
        {{range $i, $c := .Table.Columns }}`{{CamelName $c.Name}}`{{end}}
     ) values();",)
@@ -49,7 +49,7 @@ type {{$Func.Name}}Result struct {
 const sql{{$Func.Name}} = `{{$Func.Sql}}`
 
 // {{$Func.Name}}  {{$Func.Comment}}
-func (q *{{.Table.Name}}Query) {{$Func.Name}}(ctx context.Context,
+func (q *{{.Table.Name}}DBS) {{$Func.Name}}(ctx context.Context,
 	{{range $i, $c := $Func.Params}}
     	{{CamelNameLow $c.Name}}       {{$c.Type}},
     {{end}}

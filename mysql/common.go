@@ -20,6 +20,52 @@ type Column struct {
 	Alias string // user_name
 }
 
+func parseCommentSelect(cs []string) (*SelectFuncTemp, error) {
+	return parseComment(cs)
+}
+
+func parseCommentUpdate(cs []string) (*UpdateFuncTemp, error) {
+	sTemp, err := parseComment(cs)
+	if err != nil {
+		return nil, err
+	}
+	return &UpdateFuncTemp{
+		Name:    sTemp.Name,
+		Table:   sTemp.Table,
+		Comment: sTemp.Comment,
+		Sql:     sTemp.Sql,
+		Params:  sTemp.Params,
+	}, nil
+}
+
+func parseCommentDelete(cs []string) (*DeleteFuncTemp, error) {
+	sTemp, err := parseComment(cs)
+	if err != nil {
+		return nil, err
+	}
+	return &DeleteFuncTemp{
+		Name:    sTemp.Name,
+		Table:   sTemp.Table,
+		Comment: sTemp.Comment,
+		Sql:     sTemp.Sql,
+		Params:  sTemp.Params,
+	}, nil
+}
+
+func parseCommentInsert(cs []string) (*InsertFuncTemp, error) {
+	sTemp, err := parseComment(cs)
+	if err != nil {
+		return nil, err
+	}
+	return &InsertFuncTemp{
+		Name:    sTemp.Name,
+		Table:   sTemp.Table,
+		Comment: sTemp.Comment,
+		Sql:     sTemp.Sql,
+		Params:  sTemp.Params,
+	}, nil
+}
+
 func parseComment(cs []string) (*SelectFuncTemp, error) {
 	// 至少要指定函数名
 	if len(cs) < 1 || !strings.Contains(cs[0], "name:") {
@@ -30,7 +76,7 @@ func parseComment(cs []string) (*SelectFuncTemp, error) {
 		// -- name: GetUser :one/:many 函数注释 -- 默认many,one需要指定
 		// -- params:  -- 由sql语句反推生成到函数中,直接指定为条件扩展sql,暂时不支持指定(TODO)
 		// -- result: id,last_name -- sql反推,指定则定义相应结构体GetUserRes,暂时不支持指定(TODO)
-		ops := strings.Split(cs[i], " ")
+		ops := strings.Split(strings.TrimRight(cs[i], " "), " ")
 		if strings.HasPrefix(cs[i], "-- name:") {
 			if len(ops) < 3 {
 				return nil, errors.New("function name comment too less")

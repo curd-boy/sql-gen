@@ -3,7 +3,6 @@ package mysql
 import (
 	"bufio"
 	"bytes"
-	"gopkg.in/ffmt.v1"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,13 +49,13 @@ func ParseSqlPath(p string) ([]SqlTemp, error) {
 }
 
 // Parse sql文件地址 指定包名
-func Parse(p string, pack string) error {
+func Parse(p string, pack string) (map[string]Temp, error) {
 	if pack == "" {
 		pack = "default_package"
 	}
 	sqlTemps, err := ParseSqlPath(p)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// 先解析ddl语句 得到表结构
 	ts := make([]TableTemp, 0)
@@ -70,81 +69,84 @@ func Parse(p string, pack string) error {
 		}
 		ts = append(ts, *p)
 	}
-	_, _, _, _ = selectSql, updateSql, insertSql, deleteSql
-	setTableDDL(ts)
 
+	setTableDDL(ts)
 	// 每张表一个文件
-	funcMaps := make(map[string][]SelectFuncTemp)
+	temps := make(map[string]Temp, 0)
+	for i := range ts {
+		temps[ts[i].Name] = Temp{
+			Package: pack,
+			Table:   ts[i],
+		}
+	}
 	for _, s := range selectSql {
-		f, err := parseComment(s.Comment)
+		f, err := parseCommentSelect(s.Comment)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		tables, params, results, err := ParseSelectSql(s.Sql)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		f.Table = tables[0].Table
 		f.Params = params
 		f.Result = results
 		f.Sql = s.Sql
-		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
+		temp := temps[f.Table]
+		temp.SelectFunc = append(temp.SelectFunc, *f)
+		temps[f.Table] = temp
 	}
 	for _, s := range updateSql {
-		f, err := parseComment(s.Comment)
+		f, err := parseCommentUpdate(s.Comment)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		tables, params, results, err := ParseUpdateSql(s.Sql)
+		tables, params, cond, err := ParseUpdateSql(s.Sql)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		f.Table = tables[0].Table
 		f.Params = params
-		f.Result = results
 		f.Sql = s.Sql
-		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
+		f.Condition = cond
+		temp := temps[f.Table]
+		temp.UpdateFunc = append(temp.UpdateFunc, *f)
+		temps[f.Table] = temp
 	}
 	for _, s := range deleteSql {
-		f, err := parseComment(s.Comment)
+		f, err := parseCommentDelete(s.Comment)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		tables, params, err := ParseDeleteSql(s.Sql)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		f.Table = tables[0].Table
 		f.Params = params
 		f.Sql = s.Sql
-		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
+		temp := temps[f.Table]
+		temp.DeleteFunc = append(temp.DeleteFunc, *f)
+		temps[f.Table] = temp
 	}
 	for _, s := range insertSql {
-		f, err := parseComment(s.Comment)
+		f, err := parseCommentInsert(s.Comment)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		tables, params, err := ParseInsertSql(s.Sql)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		f.Table = tables[0].Table
 		f.Params = params
 		f.Sql = s.Sql
-		funcMaps[f.Table] = append(funcMaps[f.Table], *f)
+		temp := temps[f.Table]
+		temp.InsertFunc = append(temp.InsertFunc, *f)
+		temps[f.Table] = temp
 	}
 
-	// 组合成模板列表
-	temps := make([]Temp, 0)
-	for i := range ts {
-		temps = append(temps, Temp{
-			Package:     pack,
-			Table:       ts[i],
-			SelectFuncs: funcMaps[ts[i].Name],
-		})
-	}
-	ffmt.Mark(temps)
-	return nil
+	return temps, nil
 }
 
 type SqlTemp struct {

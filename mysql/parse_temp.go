@@ -9,11 +9,15 @@ import (
 	"gopkg.in/ffmt.v1"
 )
 
+
+
 type Temp struct {
-	Package     string
-	Table       TableTemp
-	SelectFuncs []SelectFuncTemp
-	UpdateFuncs []UpdateFuncTemp
+	Package    string
+	Table      TableTemp
+	SelectFunc []SelectFuncTemp
+	UpdateFunc []UpdateFuncTemp
+	InsertFunc []InsertFuncTemp
+	DeleteFunc []DeleteFuncTemp
 }
 
 type TableTemp struct {
@@ -41,6 +45,15 @@ type SelectFuncTemp struct {
 }
 
 type UpdateFuncTemp struct {
+	Name      string
+	Table     string
+	Comment   string
+	Sql       string
+	Params    []ColumnTemp // 修改的列
+	Condition []ColumnTemp // 条件
+}
+
+type InsertFuncTemp struct {
 	Name    string
 	Table   string
 	Comment string
@@ -48,7 +61,7 @@ type UpdateFuncTemp struct {
 	Params  []ColumnTemp
 }
 
-type InsertFuncTemp struct {
+type DeleteFuncTemp struct {
 	Name    string
 	Table   string
 	Comment string
