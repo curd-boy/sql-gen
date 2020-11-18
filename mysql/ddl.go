@@ -79,8 +79,9 @@ func convertColumnType(t TableTemp, c *sqlparser.ColumnDefinition) ColumnTemp {
 	// 枚举
 	switch c.Type.Type {
 	case "enum":
-		t.Enums[t.Name+c.Name.String()] = c.Type.EnumValues
-		col.Type = namecase.ToUpperHump(t.Name + "_" + c.Name.String())
+		key := namecase.ToUpperHump(t.Name + "_" + c.Name.String())
+		t.Enums[key] = c.Type.EnumValues
+		col.Type = key
 	default:
 		return col
 	}

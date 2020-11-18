@@ -18,11 +18,11 @@ func NewUsersQuery(db *sql.Tx) *{{.Table.Name}}DBS {
 }
 
 {{range $k,$v := .Table.Enums}}
-type {{CamelName $.Table.Name}}{{CamelName $k}} string
+type {{$k}} string
 const (
     {{range $i,$vv := $v}}
-    {{- CamelName $.Table.Name}}{{CamelName $k}}{{CamelName $vv}} = "{{$vv}}"
-	{{- end}}
+    {{printf "%s_%s"  $k $vv | CamelName }} = "{{$vv}}"
+	{{end}}
 )
 {{end}}
 
@@ -33,13 +33,16 @@ type {{.Table.Name}} struct {
 {{end}}
 }
 
-func (q {{.Table.Name}}DBS){{.Table.Name}}Insert(ctx context.Context val {{.Table.Name}})(int64,error){
+func (q *{{.Table.Name}}DBS){{.Table.Name}}Insert(ctx context.Context val *{{.Table.Name}})(int64,error){
     q.db.Exec("insert into {{.Table.Name}} (
-       {{range $i, $c := .Table.Columns }}`{{CamelName $c.Name}}`{{end}}
-    ) values();",)
+      {{- range $i, $c := .Table.Columns }}
+	  {{- if eq $i 0 }}`{{SnakeName $c.Name}}`
+	  {{- else}},`{{SnakeName $c.Name}}`
+	  {{- end}}
+      {{- end}}) values({{len .Table.Columns | CompletePlaceholder}});",)
 }
 
-{{range $i,$Func := .SelectFuncs}}
+{{range $i,$Func := .SelectFunc}}
 type {{$Func.Name}}Result struct {
 	{{range $i, $c := $Func.Result}}
 	{{CamelName $c.Name}}       {{$c.Type}}
@@ -49,7 +52,7 @@ type {{$Func.Name}}Result struct {
 const sql{{$Func.Name}} = `{{$Func.Sql}}`
 
 // {{$Func.Name}}  {{$Func.Comment}}
-func (q *{{.Table.Name}}DBS) {{$Func.Name}}(ctx context.Context,
+func (q *{{$.Table.Name}}DBS) {{$Func.Name}}(ctx context.Context,
 	{{range $i, $c := $Func.Params}}
     	{{CamelNameLow $c.Name}}       {{$c.Type}},
     {{end}}

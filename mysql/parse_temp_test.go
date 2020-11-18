@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"text/template"
@@ -57,12 +58,14 @@ func Test_fmtTemp(t *testing.T) {
 		Params: cols[:1],
 		Result: cols[:2],
 	}}
-
-	ParseTemp("../mysql/query-template.tpl", "./sql-gen.go",
-		&Temp{
-			Package:    "mysql",
-			Table:      tables,
-			SelectFunc: f,
-		})
+	_, _, _ = cols, tables, f
+	ts, err := Parse("./", "mysql")
+	if err != nil {
+		t.Log(err)
+		return
+	}
+	users := ts["users"]
+	fmt.Println(users)
+	ParseTemp("./template/query.tpl", "./sqlGen.go", &users)
 	ffmt.Mark(time.Since(n))
 }

@@ -9,8 +9,6 @@ import (
 	"gopkg.in/ffmt.v1"
 )
 
-
-
 type Temp struct {
 	Package    string
 	Table      TableTemp
@@ -73,6 +71,23 @@ var FuncMaps = map[string]interface{}{
 	"SnakeName":    namecase.ToLowerSnake,
 	"CamelName":    namecase.ToUpperHump,
 	"CamelNameLow": namecase.ToCamel,
+	"CompletePlaceholder": func(n int) string {
+		if n == 0 {
+			return ""
+		}
+		if n == 1 {
+			return "?"
+		}
+		ns := make([]byte, n*2-1)
+		for i := 0; i < 2*n-1; i += 2 {
+			ns[i] = '?'
+			if i == 2*n-2 {
+				break
+			}
+			ns[i+1] = ','
+		}
+		return string(ns)
+	},
 }
 
 func ParseTemp(tplPath string, outPath string, temp *Temp) {
@@ -81,7 +96,7 @@ func ParseTemp(tplPath string, outPath string, temp *Temp) {
 		ffmt.Mark(err)
 		return
 	}
-	f, err := os.OpenFile(outPath, os.O_CREATE, os.ModePerm)
+	f, err := os.OpenFile(outPath, os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil {
 		ffmt.Mark(err)
 		return
