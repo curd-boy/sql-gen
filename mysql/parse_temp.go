@@ -3,6 +3,7 @@ package mysql
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 	"text/template"
 
 	"github.com/wzshiming/namecase"
@@ -52,11 +53,12 @@ type UpdateFuncTemp struct {
 }
 
 type InsertFuncTemp struct {
-	Name    string
-	Table   string
-	Comment string
-	Sql     string
-	Params  []ColumnTemp
+	Name      string
+	Table     string
+	Comment   string
+	Sql       string
+	Params    []ColumnTemp
+	ValuesLen int
 }
 
 type DeleteFuncTemp struct {
@@ -87,6 +89,19 @@ var FuncMaps = map[string]interface{}{
 			ns[i+1] = ','
 		}
 		return string(ns)
+	},
+	"TrimSpecial": func(s string) string {
+		return strings.TrimSuffix(strings.TrimPrefix(s, "'"), "'")
+	},
+	"RangeNum": func(n int) []int {
+		if n <= 0 {
+			return []int{}
+		}
+		ns := make([]int, n)
+		for i := 0; i < n; i++ {
+			ns[i] = i
+		}
+		return ns
 	},
 }
 

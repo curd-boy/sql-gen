@@ -1,7 +1,6 @@
 package mysql
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"text/template"
@@ -65,7 +64,6 @@ func Test_fmtTemp(t *testing.T) {
 		return
 	}
 	users := ts["users"]
-	fmt.Println(users)
 	ParseTemp("./template/query.tpl", "./sqlGen.go", &users)
 	ffmt.Mark(time.Since(n))
 }

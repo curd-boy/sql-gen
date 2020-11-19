@@ -134,13 +134,14 @@ func Parse(p string, pack string) (map[string]Temp, error) {
 		if err != nil {
 			return nil, err
 		}
-		tables, params, err := ParseInsertSql(s.Sql)
+		tables, params, lens, err := ParseInsertSql(s.Sql)
 		if err != nil {
 			return nil, err
 		}
 		f.Table = tables[0].Table
 		f.Params = params
 		f.Sql = s.Sql
+		f.ValuesLen = lens
 		temp := temps[f.Table]
 		temp.InsertFunc = append(temp.InsertFunc, *f)
 		temps[f.Table] = temp

@@ -36,10 +36,13 @@ update users set age = ? where id = ? ;
 delete from info where id = ? ;
 
 -- name: UpdateInfo 更新信息
-update info set age = ? where id = ? ;
+update info set address = ? where id = ? ;
 
 -- name: DeleteUser 删除用户
 delete from users where id = ? ;
 
 -- name: GetAddress 查询地址
 select * from info where user_id = ?;
+
+-- name: AddUsers 添加用户
+insert into users (id, name, gender, age, update_time, create_time) VALUES (?,?,?,?,?,?),(?,?,?,?,?,?);
