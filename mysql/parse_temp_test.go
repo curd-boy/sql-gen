@@ -58,7 +58,12 @@ func Test_fmtTemp(t *testing.T) {
 		Result: cols[:2],
 	}}
 	_, _, _ = cols, tables, f
-	ts, err := Parse("./", "mysql")
+	sqlTemps, err := ParseSqlPath("./")
+	if err != nil {
+		t.Log(err)
+		return
+	}
+	ts, err := Convert(sqlTemps, "mysql")
 	if err != nil {
 		t.Log(err)
 		return

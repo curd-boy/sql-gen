@@ -3,6 +3,8 @@ package mysql
 import (
 	"bufio"
 	"bytes"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,26 +44,34 @@ func ParseSqlPath(p string) ([]SqlTemp, error) {
 			return err
 		}
 		defer f.Close()
-		sqlTemps = append(sqlTemps, ParseSql(bufio.NewReader(f))...)
+		sqlTemps = append(sqlTemps, GetSqlTemp(bufio.NewReader(f))...)
 		return nil
 	})
 	return sqlTemps, err
 }
 
-// Parse sql文件地址 指定包名
-func Parse(p string, pack string) (map[string]Temp, error) {
+func Parse(reader io.Reader) error {
+	sqlTemps := GetSqlTemp(bufio.NewReader(reader))
+	ts, err := Convert(sqlTemps, "mysql")
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	for s, temp := range ts {
+		ParseTemp("./template/query.tpl", "./"+s+".go", &temp)
+	}
+	return nil
+}
+
+// Convert 从 SqlTemp 到 Temp
+func Convert(sqlTemps []SqlTemp, pack string) (map[string]Temp, error) {
 	if pack == "" {
 		pack = "default_package"
 	}
-	sqlTemps, err := ParseSqlPath(p)
-	if err != nil {
-		return nil, err
-	}
-	// 先解析ddl语句 得到表结构
 	ts := make([]TableTemp, 0)
-
 	ddlSql, selectSql, updateSql, insertSql, deleteSql := splitSqlType(sqlTemps)
 
+	// 先解析ddl语句 得到表结构
 	for i := range ddlSql {
 		p, err := ParseDDL(ddlSql[i].Sql)
 		if err != nil {
@@ -155,7 +165,7 @@ type SqlTemp struct {
 	Sql     string
 }
 
-func ParseSql(r *bufio.Reader) []SqlTemp {
+func GetSqlTemp(r *bufio.Reader) []SqlTemp {
 	sqlTemps := make([]SqlTemp, 0)
 	sql := bytes.NewBufferString("")
 	sqlTemp := SqlTemp{}
@@ -164,8 +174,8 @@ func ParseSql(r *bufio.Reader) []SqlTemp {
 		if err != nil {
 			break
 		}
-		s := string(bytes.TrimSpace(bs)) + " "
-		if s == " " {
+		s := string(bytes.TrimSpace(bs))
+		if len(s) == 0 {
 			continue
 		}
 		if strings.HasPrefix(s, "--") ||
@@ -175,13 +185,16 @@ func ParseSql(r *bufio.Reader) []SqlTemp {
 			continue
 		}
 		sql.WriteString(s)
-		if strings.HasSuffix(s, "; ") {
+		if strings.HasSuffix(s, ";") {
 			sqlTemp.Sql = sql.String()
 			sqlTemps = append(sqlTemps, sqlTemp)
 			sqlTemp = SqlTemp{}
 			sql.Reset()
 		}
 	}
+	// 防止最后一条sql没有写;结束符
+	sqlTemps = append(sqlTemps, SqlTemp{Sql: sql.String()})
+	sql.Reset()
 	return sqlTemps
 }
 

@@ -21,10 +21,16 @@ type Column struct {
 }
 
 func parseCommentSelect(cs []string) (*SelectFuncTemp, error) {
+	if len(cs) == 0 {
+		return &SelectFuncTemp{}, nil
+	}
 	return parseComment(cs)
 }
 
 func parseCommentUpdate(cs []string) (*UpdateFuncTemp, error) {
+	if len(cs) == 0 {
+		return &UpdateFuncTemp{}, nil
+	}
 	sTemp, err := parseComment(cs)
 	if err != nil {
 		return nil, err
@@ -39,6 +45,9 @@ func parseCommentUpdate(cs []string) (*UpdateFuncTemp, error) {
 }
 
 func parseCommentDelete(cs []string) (*DeleteFuncTemp, error) {
+	if len(cs) == 0 {
+		return &DeleteFuncTemp{}, nil
+	}
 	sTemp, err := parseComment(cs)
 	if err != nil {
 		return nil, err
@@ -53,6 +62,9 @@ func parseCommentDelete(cs []string) (*DeleteFuncTemp, error) {
 }
 
 func parseCommentInsert(cs []string) (*InsertFuncTemp, error) {
+	if len(cs) == 0 {
+		return &InsertFuncTemp{}, nil
+	}
 	sTemp, err := parseComment(cs)
 	if err != nil {
 		return nil, err

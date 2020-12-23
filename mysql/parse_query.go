@@ -7,8 +7,8 @@ import (
 )
 
 type SelectSql struct {
-
 }
+
 func ParseSelectSql(sql string) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
@@ -62,6 +62,10 @@ func parseSelectColumn(selectTables []TableName, s *sqlparser.Select) []Column {
 		case *sqlparser.AliasedExpr:
 			cols = append(cols, parseSelectColumnNonStar(t)...)
 		case *sqlparser.StarExpr:
+			if len(TableDDL) == 0 {
+				log.Println("TableDDL is empty")
+				continue
+			}
 			cols = append(cols, parseSelectColumnStar(selectTables, t)...)
 		default:
 			log.Println("unknown column type")
