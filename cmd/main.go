@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/curd-boy/sql-gen/mysql"
+	"github.com/spf13/cobra"
 )
 
 var sqlFP string
@@ -17,6 +19,17 @@ func main() {
 	flag.StringVar(&fileOut, "o", "./", "输出到指定目录")
 
 	flag.Parse()
+	rootCMD := &cobra.Command{
+		Use:   "sgen",
+		Short: "生成go function",
+		Args:  nil,
+		Run: func(cmd *cobra.Command, args []string) {
+
+		},
+	}
+	rootCMD.AddCommand(&cobra.Command{Use: "version", Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("0.0.1")
+	}})
 
 }
 func parseFP(fp string) {
@@ -24,7 +37,7 @@ func parseFP(fp string) {
 	if err != nil {
 		return
 	}
-	ts,err:= mysql.Convert(sqlTemps,"packName")
+	ts, err := mysql.Convert(sqlTemps, "packName")
 	if err != nil {
 		return
 	}
@@ -32,7 +45,7 @@ func parseFP(fp string) {
 		mysql.ParseTemp("./mysql/template/query.tpl", fileOut+s+".go", &temp)
 	}
 }
-func parseF(f string)   {
+func parseF(f string) {
 
 }
 func parseS(s string)   {}
