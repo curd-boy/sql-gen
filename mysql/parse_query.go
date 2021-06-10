@@ -3,6 +3,7 @@ package mysql
 import (
 	"errors"
 	"log"
+
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
@@ -12,6 +13,7 @@ type SelectSql struct {
 func ParseSelectSql(sql string) ([]TableName, []ColumnTemp, []ColumnTemp, error) {
 	stmt, err := sqlparser.Parse(sql)
 	if err != nil {
+		log.Println(sql, err.Error())
 		return nil, nil, nil, err
 	}
 	tables := make([]TableName, 0)

@@ -1,6 +1,8 @@
 package mysql
 
 import (
+	"bufio"
+	"bytes"
 	"os"
 	"testing"
 	"text/template"
@@ -16,8 +18,8 @@ func Test_ParseTemp(t *testing.T) {
 		{{range $k,$v := .Table.Enums}}
 type {{CamelName $.Table.Name}}{{CamelName $k}} string
 const (
-    {{range $i,$vv := $v}}
-    {{- CamelName $.Table.Name}}{{CamelName $k}}{{CamelName $vv}} = "{{$vv}}"
+    {{- range $i,$vv := $v}}
+    {{CamelName $.Table.Name}}{{CamelName $k}}{{CamelName $vv}} = "{{$vv}}"
 	{{- end}}
 )
 {{end}}`)
@@ -58,17 +60,29 @@ func Test_fmtTemp(t *testing.T) {
 		Result: cols[:2],
 	}}
 	_, _, _ = cols, tables, f
-	sqlTemps, err := ParseSqlPath("./")
+	bf, err := ParseSqlPath("./")
 	if err != nil {
 		t.Log(err)
 		return
 	}
+	sqlTemps := GetSqlTemp(bufio.NewReader(bf))
 	ts, err := Convert(sqlTemps, "mysql")
 	if err != nil {
 		t.Log(err)
 		return
 	}
 	users := ts["users"]
-	ParseTemp("./template/query.tpl", "./sqlGen.go", &users)
+	tp, err := os.ReadFile("./template/query.tpl")
+	if err != nil {
+		t.Log(err)
+		return
+	}
+	g, err := os.OpenFile("./sqlGen.go", os.O_CREATE|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		t.Log(err)
+		return
+	}
+	defer g.Close()
+	ParseTemp(bytes.NewReader(tp), g, &users)
 	ffmt.Mark(time.Since(n))
 }

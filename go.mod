@@ -1,10 +1,10 @@
 module github.com/curd-boy/sql-gen
 
-go 1.14
+go 1.16
 
 require (
 	github.com/golang/protobuf v1.4.1 // indirect
-	github.com/spf13/cobra v1.1.1 // indirect
+	github.com/spf13/cobra v1.1.1
 	github.com/wzshiming/namecase v0.2.0
 	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f // indirect
 	google.golang.org/genproto v0.0.0-20191223191004-3caeed10a8bf // indirect

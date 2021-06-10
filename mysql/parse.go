@@ -10,25 +10,8 @@ import (
 	"strings"
 )
 
-// ParseDDLPath 解析ddl语句文件地址
-func ParseDDLPath(p string) ([]TableTemp, error) {
-	ts := make([]TableTemp, 0)
-	sqlTemps, err := ParseSqlPath(p)
-	if err != nil {
-		return ts, err
-	}
-	for _, temp := range sqlTemps {
-		ddl, err := ParseDDL(temp.Sql)
-		if err != nil {
-			return ts, err
-		}
-		ts = append(ts, *ddl)
-	}
-	return ts, err
-}
-
-func ParseSqlPath(p string) ([]SqlTemp, error) {
-	sqlTemps := make([]SqlTemp, 0)
+func ParseSqlPath(p string) (io.Reader, error) {
+	var rds []io.Reader
 	err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
 		if info == nil {
 			return err
@@ -39,26 +22,39 @@ func ParseSqlPath(p string) ([]SqlTemp, error) {
 		if !strings.HasSuffix(info.Name(), ".sql") {
 			return nil
 		}
-		f, err := os.Open(path)
+		f, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		sqlTemps = append(sqlTemps, GetSqlTemp(bufio.NewReader(f))...)
+		rds = append(rds, bytes.NewReader(f))
 		return nil
 	})
-	return sqlTemps, err
+	return io.MultiReader(rds...), err
 }
 
-func Parse(reader io.Reader) error {
+func Parse(reader io.Reader, packName string) error {
 	sqlTemps := GetSqlTemp(bufio.NewReader(reader))
-	ts, err := Convert(sqlTemps, "mysql")
+	ts, err := Convert(sqlTemps, packName)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
+	var ws []*os.File
+	defer func() {
+		for _, w := range ws {
+			err = w.Close()
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}
+	}()
 	for s, temp := range ts {
-		ParseTemp("./template/query.tpl", "./"+s+".go", &temp)
+		f, err := os.OpenFile("./"+s+".go", os.O_CREATE|os.O_RDWR, os.ModePerm)
+		if err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+		ParseTemp(strings.NewReader(TPL), f, &temp)
 	}
 	return nil
 }
@@ -184,7 +180,7 @@ func GetSqlTemp(r *bufio.Reader) []SqlTemp {
 			sqlTemp.Comment = append(sqlTemp.Comment, s)
 			continue
 		}
-		sql.WriteString(s)
+		sql.WriteString(s + " ") // 防止换行的情况
 		if strings.HasSuffix(s, ";") {
 			sqlTemp.Sql = sql.String()
 			sqlTemps = append(sqlTemps, sqlTemp)

@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"gopkg.in/ffmt.v1"
 	"strings"
 	"testing"
+
+	"gopkg.in/ffmt.v1"
 )
 
 func TestParseDDLPath(t *testing.T) {
@@ -27,14 +28,15 @@ func TestParseDDLPath(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	Parse(strings.NewReader("select name,age from users where id = ? "))
+	Parse(strings.NewReader("select name,age from users where id = ? "), "test")
 }
 
 func TestConvert(t *testing.T) {
-	sqlTemps, err := ParseSqlPath("./")
+	reader, err := ParseSqlPath("./")
 	if err != nil {
 		t.Log(err)
 		return
 	}
+	sqlTemps := GetSqlTemp(bufio.NewReader(reader))
 	ffmt.P(Convert(sqlTemps, "mysql"))
 }

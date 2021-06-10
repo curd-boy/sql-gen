@@ -1,13 +1,13 @@
 package mysql
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
-	"os"
 	"strings"
 	"text/template"
 
 	"github.com/wzshiming/namecase"
-	"gopkg.in/ffmt.v1"
 )
 
 type Temp struct {
@@ -105,33 +105,21 @@ var FuncMaps = map[string]interface{}{
 	},
 }
 
-func ParseTemp(tplPath string, outPath string, temp *Temp) {
-	t, err := ioutil.ReadFile(tplPath)
+func ParseTemp(tmpl io.Reader, out io.Writer, temp *Temp) {
+	t, err := ioutil.ReadAll(tmpl)
 	if err != nil {
-		ffmt.Mark(err)
+		fmt.Println(err.Error())
 		return
 	}
-	f, err := os.OpenFile(outPath, os.O_CREATE|os.O_RDWR, os.ModePerm)
-	if err != nil {
-		ffmt.Mark(err)
-		return
-	}
-	defer func() {
-		err := f.Close()
-		if err != nil {
-			ffmt.Mark(err)
-		}
-	}()
 	tpl := template.New("query")
 	tpl.Funcs(FuncMaps)
 	tpl, err = tpl.Parse(string(t))
 	if err != nil {
-		ffmt.Mark(err)
+		fmt.Println(err)
 		return
 	}
-
-	err = tpl.Execute(f, temp)
+	err = tpl.Execute(out, temp)
 	if err != nil {
-		ffmt.Mark(err)
+		fmt.Println(err)
 	}
 }

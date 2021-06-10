@@ -5,14 +5,14 @@ import (
 	"database/sql"
 )
 
-// {{.Table.Name}}DBS {{if .Table.Comment}}{{.Table.Comment}}{{else}}...{{end}}
-type {{.Table.Name}}DBS struct {
+// {{CamelName .Table.Name}}DBS {{if .Table.Comment}}{{.Table.Comment}}{{else}}...{{end}}
+type {{CamelName .Table.Name}}DBS struct {
 	db *sql.Tx
 }
 
-// NewUsersQuery NewUsersQuery
-func NewUsersQuery(db *sql.Tx) *{{.Table.Name}}DBS {
-	return &{{.Table.Name}}DBS{
+// New{{CamelName .Table.Name}}Query ...
+func New{{CamelName .Table.Name}}Query(db *sql.Tx) *{{CamelName .Table.Name}}DBS {
+	return &{{CamelName .Table.Name}}DBS{
 		db: db,
 	}
 }
