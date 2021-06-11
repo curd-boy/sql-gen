@@ -1,6 +1,15 @@
 # sql-gen
 mysql parse
 
+### 使用
+    
+  ```bash
+      go build -o gen  cmd/main.go 
+      ./gen help
+  ``` 
+
+### 示例
+
 - sql注释风格
 
   ```mysql
